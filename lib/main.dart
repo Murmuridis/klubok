@@ -181,7 +181,10 @@ class _WoolNavBar extends StatelessWidget {
           children: [
             for (var i = 0; i < _items.length; i++)
               Expanded(
+                // heightFactor: без него Center растягивается на всю высоту
+                // экрана, и панель закрывает собой всё приложение.
                 child: Center(
+                  heightFactor: 1,
                   child: _NavItem(
                     icon: _items[i].$1,
                     label: _items[i].$2,
