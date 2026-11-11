@@ -1,0 +1,71 @@
+name: Проверка на эмуляторе
+
+# Ставит приложение на эмулятор Android, запускает его, нажимает основные
+# кнопки и складывает снимки экрана и журнал в ветку emu-out.
+on:
+  push:
+    branches: [emu-test]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  emu:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Дописать файлы Android-проекта
+        run: flutter create --platforms=android --org nl.mikem --project-name klubok .
+
+      - name: Постоянный ключ подписи
+        run: python3 ci/sign.py
+
+      - run: flutter pub get
+
+      # Эмулятор на сборочной машине — x86_64, поэтому собираем под него.
+      - name: Собрать APK для эмулятора
+        run: |
+          flutter build apk --release --target-platform android-x64
+          cp build/app/outputs/flutter-apk/app-release.apk klubok-x64.apk
+
+      - name: Включить KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Запустить на эмуляторе
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
+          script: python3 ci/emu.py klubok-x64.apk emu-out
+
+      - name: Сложить результаты в ветку emu-out
+        if: always()
+        run: |
+          mkdir -p emu-out
+          cd emu-out
+          git init -q -b emu-out
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Проверка на эмуляторе: ${GITHUB_SHA::7}" --allow-empty
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" emu-out
