@@ -57,6 +57,7 @@ def dump(name=None):
             v for v in (
                 (re.search(r'\btext="([^"]*)"', tag) or [None, ""])[1],
                 (re.search(r'\bcontent-desc="([^"]*)"', tag) or [None, ""])[1],
+                (re.search(r'\bhint="([^"]*)"', tag) or [None, ""])[1],
             ) if v
         )
         b = re.search(r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', tag)
@@ -109,9 +110,15 @@ note("[установка] " + adb("install", "-r", APK, timeout=300).replace("\
 dismiss_anr()
 adb("logcat", "-c")
 note("[запуск] " + adb("shell", "monkey", "-p", PKG, "-c", "android.intent.category.LAUNCHER", "1").splitlines()[-1])
-time.sleep(12)
-dismiss_anr()
-time.sleep(2)
+for attempt in range(30):
+    time.sleep(3)
+    dismiss_anr()
+    labels = " · ".join(n[0] for n in dump())
+    if "Новый проект" in labels:
+        note(f"[запуск] первый экран приложения появился через ~{(attempt + 1) * 3} с")
+        break
+else:
+    note("[запуск] первый экран приложения так и не появился в дереве элементов")
 shot("01-start")
 note("[экран] " + " · ".join(n[0] for n in dump("01-start"))[:600])
 
@@ -119,16 +126,18 @@ note("[экран] " + " · ".join(n[0] for n in dump("01-start"))[:600])
 tap_label("Новый проект", fallback=(W // 2, int(H * 0.60)))
 time.sleep(1.5)
 shot("02-new-project")
-if tap_label("Что вяжем", "02-new-project", fallback=(W // 2, int(H * 0.47))):
-    pass
+note("[экран] " + " · ".join(n[0] for n in dump())[:600])
+tap_label("Что вяжем", "02-new-project", fallback=(W // 2, int(H * 0.42)))
 adb("shell", "input", "text", "Sviter")
 time.sleep(1)
 shot("03-typed")
-for _ in range(3):
-    adb("shell", "input", "swipe", str(W // 2), str(int(H * 0.55)), str(W // 2), str(int(H * 0.15)), "250")
-    time.sleep(0.8)
+for _ in range(6):
+    if any("Создать проект" in n[0] for n in dump()):
+        break
+    adb("shell", "input", "swipe", str(W // 2), str(int(H * 0.45)), str(W // 2), str(int(H * 0.15)), "300")
+    time.sleep(1)
 shot("04-form-bottom")
-tap_label("Создать проект", "04-form-bottom", fallback=(W // 2, int(H * 0.5)))
+tap_label("Создать проект", "04-form-bottom")
 time.sleep(2)
 shot("05-counter")
 note("[экран] " + " · ".join(n[0] for n in dump("05-counter"))[:600])
@@ -147,10 +156,16 @@ shot("07-after-volume-keys")
 note("[экран] " + " · ".join(n[0] for n in dump("07-after-volume-keys"))[:600])
 
 # Остальные вкладки
-tap_label("Проекты", fallback=(W // 2, int(H * 0.955)))
+tap_label("Проекты", fallback=(W // 2, int(H * 0.94)))
 time.sleep(1.5)
 shot("08-projects")
-tap_label("Пряжа", fallback=(int(W * 0.83), int(H * 0.955)))
+if tap_label("Sviter"):
+    time.sleep(1.5)
+    shot("08b-project-card")
+    note("[экран] " + " · ".join(n[0] for n in dump("08b-project-card"))[:700])
+    adb("shell", "input", "keyevent", "KEYCODE_BACK")
+    time.sleep(1.5)
+tap_label("Пряжа", fallback=(int(W * 0.83), int(H * 0.94)))
 time.sleep(1.5)
 shot("09-yarn")
 tap_label("Добавить пряжу", fallback=(W // 2, int(H * 0.60)))
