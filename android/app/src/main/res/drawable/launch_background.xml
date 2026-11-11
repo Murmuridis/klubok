@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Пока приложение запускается, фон того же кремового цвета, что и внутри. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#F4EBDD" />
+        </shape>
+    </item>
+</layer-list>
