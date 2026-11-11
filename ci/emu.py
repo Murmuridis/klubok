@@ -87,15 +87,31 @@ def tap_label(text, name=None, fallback=None):
     return False
 
 
+def dismiss_anr():
+    """На медленном эмуляторе системные приложения иногда «не отвечают» — жмём «Wait»."""
+    for _ in range(3):
+        nodes = dump()
+        if not any("responding" in n[0] for n in nodes):
+            return
+        wait = [n for n in nodes if n[0].strip() == "Wait"]
+        note("[эмулятор] системное окно «isn't responding» — жму Wait")
+        if wait:
+            tap(wait[0][1], wait[0][2])
+        time.sleep(3)
+
+
 size = adb("shell", "wm", "size")
 m = re.search(r"(\d+)x(\d+)", size)
 W, H = (int(m.group(1)), int(m.group(2))) if m else (1080, 2400)
 note(f"Экран: {W}x{H}; Android {adb('shell', 'getprop', 'ro.build.version.release')}, ABI {adb('shell', 'getprop', 'ro.product.cpu.abi')}")
 
 note("[установка] " + adb("install", "-r", APK, timeout=300).replace("\n", " | "))
+dismiss_anr()
 adb("logcat", "-c")
 note("[запуск] " + adb("shell", "monkey", "-p", PKG, "-c", "android.intent.category.LAUNCHER", "1").splitlines()[-1])
 time.sleep(12)
+dismiss_anr()
+time.sleep(2)
 shot("01-start")
 note("[экран] " + " · ".join(n[0] for n in dump("01-start"))[:600])
 
